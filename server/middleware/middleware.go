@@ -6,20 +6,35 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"server/models"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+func goDotEnvVariable(key string) string {
+
+	// load .env file
+	err := godotenv.Load("../.env")
+
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	return os.Getenv(key)
+}
+
 // DB connection string
 // for localhost mongoDB
 // const connectionString = "mongodb://localhost:27017"
-const connectionString = "mongodb+srv://jrluecke:felix1@cluster0.jm0rh.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
+var value = goDotEnvVariable("mongodbConnectString")
+var connectionString = value
 
 // Database Name
 const dbName = "trainwell"

@@ -8,7 +8,7 @@ type Client struct {
 	FirstName   string             `json:"firstname"`
 	LastName    string             `json:"lastname"`
 	Email       string             `json:"email"`
-	PhoneNumber int32              `json:"phonenumber"`
+	PhoneNumber string             `json:"phonenumber"`
 	Password    string             `json:"password"`
 }
 type Coach struct {
@@ -16,7 +16,7 @@ type Coach struct {
 	FirstName   string             `json:"firstname"`
 	LastName    string             `json:"lastname"`
 	Email       string             `json:"email"`
-	PhoneNumber int32              `json:"phonenumber"`
+	PhoneNumber string             `json:"phonenumber"`
 	Password    string             `json:"password"`
 }
 

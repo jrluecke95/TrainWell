@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"server/models"
 
@@ -81,10 +80,10 @@ func init() {
 func CreateExercise(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("content-type", "application/json")
 	var exercise models.Exercise
-	json.NewDecoder(req.Body).Decode((&exercise))
+	json.NewDecoder(req.Body).Decode(&exercise)
 	exercise.ID = primitive.NewObjectID()
-	createExercise(exercise)
-	json.NewEncoder(res).Encode((exercise))
+	createExercise(exercise, res)
+	json.NewEncoder(res).Encode(exercise)
 }
 
 func GetExercises(res http.ResponseWriter, req *http.Request) {
@@ -93,17 +92,45 @@ func GetExercises(res http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(res).Encode(payload)
 }
 
-func createExercise(exercise models.Exercise) {
+func CreateCoach(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var coach models.Coach
+	json.NewDecoder(req.Body).Decode(&coach)
+	coach.ID = primitive.NewObjectID()
+	createCoach(coach, res)
+	json.NewEncoder(res).Encode(coach)
+}
 
+func GetCoaches(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	payload := getAllCoaches()
+	json.NewEncoder(res).Encode(payload)
+}
+
+func CreateClient(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var client models.Client
+	json.NewDecoder(req.Body).Decode(&client)
+	client.ID = primitive.NewObjectID()
+	createClient(client, res)
+	json.NewEncoder(res).Encode(client)
+}
+
+func GetClients(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	payload := getAllClients()
+	json.NewEncoder(res).Encode(payload)
+}
+
+func createExercise(exercise models.Exercise, res http.ResponseWriter) {
 	var result = &models.Exercise{}
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	duplicateErr := exerciseCollection.FindOne(ctx, bson.D{primitive.E{Key: "name", Value: string(exercise.Name)}}).Decode(&result)
+	duplicateErr := exerciseCollection.FindOne(context.Background(), bson.D{primitive.E{Key: "name", Value: string(exercise.Name)}}).Decode(&result)
 
 	if duplicateErr == nil {
 		if duplicateErr == mongo.ErrNoDocuments {
 			return
 		}
-		fmt.Println("400 error exercise alrady exists")
+		http.Error(res, "Exercise already exists", 400)
 		return
 	}
 
@@ -139,43 +166,99 @@ func getAllExercises() []primitive.M {
 	return results
 }
 
-// get all task from the DB and return it
-// func getAllTask() []primitive.M {
-// 	cur, err := collection.Find(context.Background(), bson.D{{}})
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
+func createCoach(coach models.Coach, res http.ResponseWriter) {
+	var result = &models.Coach{}
+	duplicateEmailErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(coach.Email)}).Decode(&result)
+	duplicatePhoneErr := coachCollection.FindOne(context.Background(), bson.M{"phonenumber": string(coach.PhoneNumber)}).Decode(&result)
 
-// 	var results []primitive.M
-// 	for cur.Next(context.Background()) {
-// 		var result bson.M
-// 		e := cur.Decode(&result)
-// 		if e != nil {
-// 			log.Fatal(e)
-// 		}
-// 		// fmt.Println("cur..>", cur, "result", reflect.TypeOf(result), reflect.TypeOf(result["_id"]))
-// 		results = append(results, result)
+	if duplicateEmailErr == nil {
+		http.Error(res, "Email already in use for coach", 400)
+		return
+	}
 
-// 	}
+	if duplicatePhoneErr == nil {
+		http.Error(res, "Phonenumber already in use for coach", 400)
+		return
+	}
 
-// 	if err := cur.Err(); err != nil {
-// 		log.Fatal(err)
-// 	}
+	_, err := coachCollection.InsertOne(context.Background(), coach)
 
-// 	cur.Close(context.Background())
-// 	return results
-// }
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
-// // Insert one task in the DB
-// func insertOneTask(task models.ToDoList) {
-// 	insertResult, err := collection.InsertOne(context.Background(), task)
+func getAllCoaches() []primitive.M {
+	cur, err := coachCollection.Find(context.Background(), bson.D{{}})
 
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
+	if err != nil {
+		log.Fatal(err)
+	}
 
-// 	fmt.Println("Inserted a Single Record ", insertResult.InsertedID)
-// }
+	var results []primitive.M
+	for cur.Next(context.Background()) {
+		var result bson.M
+		e := cur.Decode(&result)
+		if e != nil {
+			log.Fatal(e)
+		}
+		results = append(results, result)
+	}
+
+	if err := cur.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	cur.Close(context.Background())
+	return results
+}
+
+func createClient(client models.Client, res http.ResponseWriter) {
+	var result = &models.Client{}
+	duplicateEmailErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(client.Email)}).Decode(&result)
+	duplicatePhoneErr := clientCollection.FindOne(context.Background(), bson.M{"phonenumber": string(client.PhoneNumber)}).Decode(&result)
+
+	if duplicateEmailErr == nil {
+		http.Error(res, "Email already in use for client", 400)
+		return
+	}
+
+	if duplicatePhoneErr == nil {
+		http.Error(res, "Phonenumber already in use for client", 400)
+		return
+	}
+
+	_, err := clientCollection.InsertOne(context.Background(), client)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func getAllClients() []primitive.M {
+	cur, err := clientCollection.Find(context.Background(), bson.D{{}})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var results []primitive.M
+	for cur.Next(context.Background()) {
+		var result bson.M
+		e := cur.Decode(&result)
+		if e != nil {
+			log.Fatal(e)
+		}
+		results = append(results, result)
+	}
+
+	if err := cur.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	cur.Close(context.Background())
+	return results
+}
 
 // // task complete method, update task's status to true
 // func taskComplete(task string) {

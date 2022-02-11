@@ -86,42 +86,6 @@ func CreateExercise(res http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(res).Encode(exercise)
 }
 
-func GetExercises(res http.ResponseWriter, req *http.Request) {
-	res.Header().Add("content-type", "application/json")
-	payload := getAllExercises()
-	json.NewEncoder(res).Encode(payload)
-}
-
-func CreateCoach(res http.ResponseWriter, req *http.Request) {
-	res.Header().Add("content-type", "application/json")
-	var coach models.Coach
-	json.NewDecoder(req.Body).Decode(&coach)
-	coach.ID = primitive.NewObjectID()
-	createCoach(coach, res)
-	json.NewEncoder(res).Encode(coach)
-}
-
-func GetCoaches(res http.ResponseWriter, req *http.Request) {
-	res.Header().Add("content-type", "application/json")
-	payload := getAllCoaches()
-	json.NewEncoder(res).Encode(payload)
-}
-
-func CreateClient(res http.ResponseWriter, req *http.Request) {
-	res.Header().Add("content-type", "application/json")
-	var client models.Client
-	json.NewDecoder(req.Body).Decode(&client)
-	client.ID = primitive.NewObjectID()
-	createClient(client, res)
-	json.NewEncoder(res).Encode(client)
-}
-
-func GetClients(res http.ResponseWriter, req *http.Request) {
-	res.Header().Add("content-type", "application/json")
-	payload := getAllClients()
-	json.NewEncoder(res).Encode(payload)
-}
-
 func createExercise(exercise models.Exercise, res http.ResponseWriter) {
 	var result = &models.Exercise{}
 	duplicateErr := exerciseCollection.FindOne(context.Background(), bson.D{primitive.E{Key: "name", Value: string(exercise.Name)}}).Decode(&result)
@@ -139,6 +103,12 @@ func createExercise(exercise models.Exercise, res http.ResponseWriter) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func GetExercises(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	payload := getAllExercises()
+	json.NewEncoder(res).Encode(payload)
 }
 
 func getAllExercises() []primitive.M {
@@ -166,6 +136,15 @@ func getAllExercises() []primitive.M {
 	return results
 }
 
+func CreateCoach(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var coach models.Coach
+	json.NewDecoder(req.Body).Decode(&coach)
+	coach.ID = primitive.NewObjectID()
+	createCoach(coach, res)
+	json.NewEncoder(res).Encode(coach)
+}
+
 func createCoach(coach models.Coach, res http.ResponseWriter) {
 	var result = &models.Coach{}
 	duplicateEmailErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(coach.Email)}).Decode(&result)
@@ -186,6 +165,12 @@ func createCoach(coach models.Coach, res http.ResponseWriter) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func GetCoaches(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	payload := getAllCoaches()
+	json.NewEncoder(res).Encode(payload)
 }
 
 func getAllCoaches() []primitive.M {
@@ -213,6 +198,15 @@ func getAllCoaches() []primitive.M {
 	return results
 }
 
+func CreateClient(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var client models.Client
+	json.NewDecoder(req.Body).Decode(&client)
+	client.ID = primitive.NewObjectID()
+	createClient(client, res)
+	json.NewEncoder(res).Encode(client)
+}
+
 func createClient(client models.Client, res http.ResponseWriter) {
 	var result = &models.Client{}
 	duplicateEmailErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(client.Email)}).Decode(&result)
@@ -233,6 +227,12 @@ func createClient(client models.Client, res http.ResponseWriter) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func GetClients(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	payload := getAllClients()
+	json.NewEncoder(res).Encode(payload)
 }
 
 func getAllClients() []primitive.M {
@@ -260,54 +260,23 @@ func getAllClients() []primitive.M {
 	return results
 }
 
-// // task complete method, update task's status to true
-// func taskComplete(task string) {
-// 	fmt.Println(task)
-// 	id, _ := primitive.ObjectIDFromHex(task)
-// 	filter := bson.M{"_id": id}
-// 	update := bson.M{"$set": bson.M{"status": true}}
-// 	result, err := collection.UpdateOne(context.Background(), filter, update)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
+func AssignCoach(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var client models.Client
+	json.NewDecoder(req.Body).Decode(&client)
+	client.ID = primitive.NewObjectID()
+	assignCoach(client, res, req)
+	json.NewEncoder(res).Encode(client)
+}
 
-// 	fmt.Println("modified count: ", result.ModifiedCount)
-// }
-
-// // task undo method, update task's status to false
-// func undoTask(task string) {
-// 	fmt.Println(task)
-// 	id, _ := primitive.ObjectIDFromHex(task)
-// 	filter := bson.M{"_id": id}
-// 	update := bson.M{"$set": bson.M{"status": false}}
-// 	result, err := collection.UpdateOne(context.Background(), filter, update)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	fmt.Println("modified count: ", result.ModifiedCount)
-// }
-
-// // delete one task from the DB, delete by ID
-// func deleteOneTask(task string) {
-// 	fmt.Println(task)
-// 	id, _ := primitive.ObjectIDFromHex(task)
-// 	filter := bson.M{"_id": id}
-// 	d, err := collection.DeleteOne(context.Background(), filter)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	fmt.Println("Deleted Document", d.DeletedCount)
-// }
-
-// // delete all the tasks from the DB
-// func deleteAllTask() int64 {
-// 	d, err := collection.DeleteMany(context.Background(), bson.D{{}}, nil)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	fmt.Println("Deleted Document", d.DeletedCount)
-// 	return d.DeletedCount
-// }
+func assignCoach(client models.Client, res http.ResponseWriter, req *http.Request) {
+	// find client first
+	// how to pull info from request body?
+	// do i need to pass the whole client through?
+	// or does it make more sense to pass email/phone/id and use that to find client?
+	// db look up or passing larger object more efficient?
+	//var client2 models.Client
+	// json.NewDecoder(req.Body).Decode(&client2)
+	// fmt.Println(client2.F)
+	// append coach id to client coaches array
+}

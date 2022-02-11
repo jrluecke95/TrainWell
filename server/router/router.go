@@ -23,5 +23,8 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/client", middleware.CreateClient).Methods("POST")
 	router.HandleFunc("/api/clients", middleware.GetClients).Methods("GET")
 
+	//assign coach
+	router.HandleFunc("/api/assignCoach", middleware.AssignCoach).Methods("PUT")
+
 	return router
 }

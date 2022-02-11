@@ -4,7 +4,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type Client struct {
 	ID          primitive.ObjectID `json:"_id" bson:"_id"`
-	Coaches     []*Coach           `json:"coach`
+	Coaches     []*Coach           `json:"coach"`
 	FirstName   string             `json:"firstname"`
 	LastName    string             `json:"lastname"`
 	Email       string             `json:"email"`

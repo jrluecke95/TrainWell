@@ -90,34 +90,6 @@ func init() {
 	fmt.Println("Collection instance created!")
 }
 
-func CreateExercise(res http.ResponseWriter, req *http.Request) {
-	res.Header().Add("content-type", "application/json")
-	var exercise models.Exercise
-	json.NewDecoder(req.Body).Decode(&exercise)
-	exercise.ID = primitive.NewObjectID()
-	createExercise(exercise, res)
-	json.NewEncoder(res).Encode(exercise)
-}
-
-func createExercise(exercise models.Exercise, res http.ResponseWriter) {
-	var result = &models.Exercise{}
-	duplicateErr := exerciseCollection.FindOne(context.Background(), bson.D{primitive.E{Key: "name", Value: string(exercise.Name)}}).Decode(&result)
-
-	if duplicateErr == nil {
-		if duplicateErr == mongo.ErrNoDocuments {
-			return
-		}
-		http.Error(res, "Exercise already exists", 400)
-		return
-	}
-
-	_, err := exerciseCollection.InsertOne(context.Background(), exercise)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func GetExercises(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("content-type", "application/json")
 	payload := getAllExercises()
@@ -360,7 +332,7 @@ func createExerciseDetails(body ExerciseDetailsBody, exerciseDetails models.Exer
 	exerciseDetails.ID = primitive.NewObjectID()
 	exerciseDetails.Reps = body.Reps
 	exerciseDetails.Sets = body.Sets
-	exerciseDetails.Name_ID = body.ID
+	exerciseDetails.Exercise_ID = body.ID
 
 	details := append(exercise.ExerciseDetails, exerciseDetails.ID)
 

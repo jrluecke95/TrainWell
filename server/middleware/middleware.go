@@ -17,6 +17,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type AssignCoachBody struct {
+	ClientEmail string `json:"clientEmail" bson:"clientEmail"`
+	CoachEmail  string `json:"coachEmail" bson:"coachEmail"`
+}
+type ExerciseDetailsBody struct {
+	ID   primitive.ObjectID `json:"id"`
+	Sets int16              `json:"sets"`
+	Reps int16              `json:"reps"`
+}
+
 func goDotEnvVariable(key string) string {
 
 	// load .env file
@@ -42,11 +52,13 @@ const dbName = "trainwell"
 const coaches = "Coaches"
 const clients = "Clients"
 const exercises = "Exercises"
+const exerciseDetails = "ExerciseDetails"
 
 // collection object/instance
 var coachCollection *mongo.Collection
 var clientCollection *mongo.Collection
 var exerciseCollection *mongo.Collection
+var exerciseDetailsCollection *mongo.Collection
 
 // create connection with mongo db
 func init() {
@@ -73,6 +85,7 @@ func init() {
 	coachCollection = client.Database(dbName).Collection(coaches)
 	clientCollection = client.Database(dbName).Collection(clients)
 	exerciseCollection = client.Database(dbName).Collection((exercises))
+	exerciseDetailsCollection = client.Database(dbName).Collection(exerciseDetails)
 
 	fmt.Println("Collection instance created!")
 }
@@ -222,6 +235,7 @@ func createClient(client models.Client, res http.ResponseWriter) {
 		return
 	}
 
+	// need to encrypt/decrypt password
 	_, err := clientCollection.InsertOne(context.Background(), client)
 
 	if err != nil {
@@ -262,21 +276,117 @@ func getAllClients() []primitive.M {
 
 func AssignCoach(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("content-type", "application/json")
-	var client models.Client
-	json.NewDecoder(req.Body).Decode(&client)
-	client.ID = primitive.NewObjectID()
-	assignCoach(client, res, req)
-	json.NewEncoder(res).Encode(client)
+	var body AssignCoachBody
+	json.NewDecoder(req.Body).Decode(&body)
+	assignCoach(body, res, req)
+	json.NewEncoder(res).Encode(body)
 }
 
-func assignCoach(client models.Client, res http.ResponseWriter, req *http.Request) {
-	// find client first
-	// how to pull info from request body?
-	// do i need to pass the whole client through?
-	// or does it make more sense to pass email/phone/id and use that to find client?
-	// db look up or passing larger object more efficient?
-	//var client2 models.Client
-	// json.NewDecoder(req.Body).Decode(&client2)
-	// fmt.Println(client2.F)
-	// append coach id to client coaches array
+func assignCoach(body AssignCoachBody, res http.ResponseWriter, req *http.Request) {
+	clientResult := &models.Client{}
+	clientCollection.FindOne(context.Background(), bson.M{"email": string(body.ClientEmail)}).Decode(&clientResult)
+
+	coachResult := &models.Coach{}
+	coachCollection.FindOne(context.Background(), bson.M{"email": string(body.CoachEmail)}).Decode(&coachResult)
+
+	newCoaches := append(clientResult.Coaches, coachResult.ID)
+	coachUpdate := bson.M{
+		"$set": bson.M{
+			"coaches": newCoaches,
+		},
+	}
+
+	clientCollection.UpdateByID(context.Background(), clientResult.ID, coachUpdate)
+
+	// need to add error handling for non-existent client
+	// if needed
+
+	newClients := append(coachResult.Clients, clientResult.ID)
+	clientUpdate := bson.M{
+		"$set": bson.M{
+			"clients": newClients,
+		},
+	}
+
+	coachCollection.UpdateByID(context.Background(), coachResult.ID, clientUpdate)
+}
+
+func UnassignCoach(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var body AssignCoachBody
+	json.NewDecoder(req.Body).Decode(&body)
+	unassignCoach(body, res, req)
+	json.NewEncoder(res).Encode("Coach removal successful")
+}
+
+func unassignCoach(body AssignCoachBody, res http.ResponseWriter, req *http.Request) {
+	clientResult := &models.Client{}
+	clientCollection.FindOne(context.Background(), bson.M{"email": string(body.ClientEmail)}).Decode(&clientResult)
+
+	coachResult := &models.Coach{}
+	coachCollection.FindOne(context.Background(), bson.M{"email": string(body.CoachEmail)}).Decode(&coachResult)
+
+	newCoaches := removeIDFromArray(clientResult.Coaches, coachResult.ID)
+	coachUpdate := bson.M{
+		"$set": bson.M{
+			"coaches": newCoaches,
+		},
+	}
+
+	clientCollection.UpdateByID(context.Background(), clientResult.ID, coachUpdate)
+
+	newClients := removeIDFromArray(coachResult.Clients, clientResult.ID)
+	clientUpdate := bson.M{
+		"$set": bson.M{
+			"clients": newClients,
+		},
+	}
+
+	coachCollection.UpdateByID(context.Background(), coachResult.ID, clientUpdate)
+}
+
+func CreateExerciseDetails(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var body ExerciseDetailsBody
+	var exerciseDetails models.ExerciseDetails
+	json.NewDecoder(req.Body).Decode(&body)
+	createExerciseDetails(body, exerciseDetails, res, req)
+}
+
+func createExerciseDetails(body ExerciseDetailsBody, exerciseDetails models.ExerciseDetails, res http.ResponseWriter, req *http.Request) {
+	exercise := models.Exercise{}
+	exerciseCollection.FindOne(context.Background(), bson.M{"_id": body.ID}).Decode(&exercise)
+
+	exerciseDetails.ID = primitive.NewObjectID()
+	exerciseDetails.Reps = body.Reps
+	exerciseDetails.Sets = body.Sets
+	exerciseDetails.Name_ID = body.ID
+
+	details := append(exercise.ExerciseDetails, exerciseDetails.ID)
+
+	exerciseUpdate := bson.M{
+		"$set": bson.M{
+			"exercisedetails": details,
+		},
+	}
+
+	exerciseCollection.UpdateByID(context.Background(), body.ID, exerciseUpdate)
+
+	_, err := exerciseDetailsCollection.InsertOne(context.Background(), exerciseDetails)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	json.NewEncoder(res).Encode(exerciseDetails)
+}
+
+func removeIDFromArray(initArray []primitive.ObjectID, badId primitive.ObjectID) []primitive.ObjectID {
+	var finalArr []primitive.ObjectID
+	for _, s := range initArray {
+		if s != badId {
+			finalArr = append(finalArr, s)
+		}
+	}
+	return finalArr
 }

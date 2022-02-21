@@ -48,12 +48,16 @@ const coaches = "Coaches"
 const clients = "Clients"
 const exercises = "Exercises"
 const exerciseDetails = "ExerciseDetails"
+const workoutPlans = "WorkoutPlans"
+const workouts = "Workouts"
 
 // collection object/instance
 var coachCollection *mongo.Collection
 var clientCollection *mongo.Collection
 var exerciseCollection *mongo.Collection
 var exerciseDetailsCollection *mongo.Collection
+var workoutPlanCollection *mongo.Collection
+var workoutCollection *mongo.Collection
 
 // create connection with mongo db
 func init() {
@@ -81,6 +85,8 @@ func init() {
 	clientCollection = client.Database(dbName).Collection(clients)
 	exerciseCollection = client.Database(dbName).Collection((exercises))
 	exerciseDetailsCollection = client.Database(dbName).Collection(exerciseDetails)
+	workoutCollection = client.Database(dbName).Collection(workouts)
+	workoutPlanCollection = client.Database(dbName).Collection(workoutPlans)
 
 	fmt.Println("Collection instance created!")
 }

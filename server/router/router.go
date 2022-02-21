@@ -30,5 +30,8 @@ func Router() *mux.Router {
 	//exercise details
 	router.HandleFunc("/api/exercise/details", middleware.CreateExerciseDetails).Methods("POST")
 
+	//workoutplans
+	router.HandleFunc("/api/workoutPlan", middleware.CreateWorkoutPlan).Methods("POST")
+
 	return router
 }

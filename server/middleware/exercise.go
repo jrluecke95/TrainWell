@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"server/models"
 
@@ -62,4 +63,71 @@ func createExercise(exercise models.Exercise, res http.ResponseWriter) error {
 
 	// Return the err.
 	return err
+}
+
+func GetExercises(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	payload := getAllExercises()
+	json.NewEncoder(res).Encode(payload)
+}
+
+func getAllExercises() []primitive.M {
+	cur, err := exerciseCollection.Find(context.Background(), bson.D{{}})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var results []primitive.M
+	for cur.Next(context.Background()) {
+		var result bson.M
+		e := cur.Decode(&result)
+		if e != nil {
+			log.Fatal(e)
+		}
+		results = append(results, result)
+	}
+
+	if err := cur.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	cur.Close(context.Background())
+	return results
+}
+
+func CreateExerciseDetails(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var body ExerciseDetailsBody
+	var exerciseDetails models.ExerciseDetails
+	json.NewDecoder(req.Body).Decode(&body)
+	createExerciseDetails(body, exerciseDetails, res, req)
+}
+
+func createExerciseDetails(body ExerciseDetailsBody, exerciseDetails models.ExerciseDetails, res http.ResponseWriter, req *http.Request) {
+	exercise := models.Exercise{}
+	exerciseCollection.FindOne(context.Background(), bson.M{"_id": body.ID}).Decode(&exercise)
+
+	exerciseDetails.ID = primitive.NewObjectID()
+	exerciseDetails.Reps = body.Reps
+	exerciseDetails.Sets = body.Sets
+	exerciseDetails.Exercise_ID = body.ID
+
+	details := append(exercise.ExerciseDetails, exerciseDetails.ID)
+
+	exerciseUpdate := bson.M{
+		"$set": bson.M{
+			"exercisedetails": details,
+		},
+	}
+
+	exerciseCollection.UpdateByID(context.Background(), body.ID, exerciseUpdate)
+
+	_, err := exerciseDetailsCollection.InsertOne(context.Background(), exerciseDetails)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	json.NewEncoder(res).Encode(exerciseDetails)
 }

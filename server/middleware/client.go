@@ -22,14 +22,14 @@ func CreateClient(res http.ResponseWriter, req *http.Request) {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("added client:", client.FirstName)
+	fmt.Println("added client:", client.PersonalInfo.FirstName)
 	json.NewEncoder(res).Encode(client)
 }
 
 func createClient(client models.Client, res http.ResponseWriter) error {
 	var result = &models.Client{}
-	duplicateEmailErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(client.Email)}).Decode(&result)
-	duplicatePhoneErr := clientCollection.FindOne(context.Background(), bson.M{"phonenumber": string(client.PhoneNumber)}).Decode(&result)
+	duplicateEmailErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(client.PersonalInfo.Email)}).Decode(&result)
+	duplicatePhoneErr := clientCollection.FindOne(context.Background(), bson.M{"phonenumber": string(client.PersonalInfo.PhoneNumber)}).Decode(&result)
 
 	if duplicateEmailErr == nil {
 		errString := "email already in use for client"
@@ -43,7 +43,10 @@ func createClient(client models.Client, res http.ResponseWriter) error {
 		return errors.New(errString)
 	}
 
-	// need to encrypt/decrypt password
+	// TODO do i need to do something with this error
+	hash, _ := HashPassword(client.PersonalInfo.Password)
+	client.PersonalInfo.Password = hash
+
 	_, err := clientCollection.InsertOne(context.Background(), client)
 
 	return err

@@ -26,7 +26,6 @@ func CreateWorkoutPlan(res http.ResponseWriter, req *http.Request) {
 
 	workoutPlan.ID = primitive.NewObjectID()
 	workoutPlan.Name = workoutPlanBody.Name
-	workoutPlan.Coach = workoutPlanBody.Coach
 
 	err := createWorkoutPlan(workoutPlan, res)
 	if err != nil {
@@ -43,6 +42,8 @@ func CreateWorkoutPlan(res http.ResponseWriter, req *http.Request) {
 func createWorkoutPlan(workoutPlan models.WorkoutPlan, res http.ResponseWriter) error {
 	response := workoutPlanCollection.FindOne(context.Background(), bson.D{primitive.E{Key: "name", Value: string(workoutPlan.Name)}})
 
+	//TODO use session to get coach that is updating/creating plan and then lookup workout by name
+
 	if response.Err() != mongo.ErrNoDocuments {
 		errString := "workout plan with that name already exists"
 
@@ -56,27 +57,28 @@ func createWorkoutPlan(workoutPlan models.WorkoutPlan, res http.ResponseWriter) 
 		return insertErr
 	}
 
-	var coachResult models.Coach
+	// TODO should all be replaced with session info
+	// var coachResult models.Coach
 
-	findCoachErr := coachCollection.FindOne(context.Background(), bson.M{"_id": workoutPlan.Coach}).Decode(&coachResult)
+	// findCoachErr := coachCollection.FindOne(context.Background(), bson.M{"_id": workoutPlan.Coach}).Decode(&coachResult)
 
-	if findCoachErr != nil {
-		return findCoachErr
-	}
+	// if findCoachErr != nil {
+	// 	return findCoachErr
+	// }
 
-	newWorkoutPlans := append(coachResult.WorkoutPlans, workoutPlan)
+	// newWorkoutPlans := append(coachResult.WorkoutPlans, workoutPlan)
 
-	workoutPlanUpdate := bson.M{
-		"$set": bson.M{
-			"workoutPlans": newWorkoutPlans,
-		},
-	}
+	// workoutPlanUpdate := bson.M{
+	// 	"$set": bson.M{
+	// 		"workoutPlans": newWorkoutPlans,
+	// 	},
+	// }
 
-	_, coachUpdateErr := coachCollection.UpdateByID(context.Background(), coachResult.ID, workoutPlanUpdate)
+	// _, coachUpdateErr := coachCollection.UpdateByID(context.Background(), coachResult.ID, workoutPlanUpdate)
 
-	if coachUpdateErr != nil {
-		return coachUpdateErr
-	}
+	// if coachUpdateErr != nil {
+	// 	return coachUpdateErr
+	// }
 
 	return nil
 }

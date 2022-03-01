@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AssignCoachBody struct {
@@ -17,12 +18,15 @@ type AssignCoachBody struct {
 	CoachEmail  string `json:"coachEmail" bson:"coachEmail"`
 }
 type ExerciseDetailsBody struct {
-	ID   primitive.ObjectID `json:"id"`
-	Sets int16              `json:"sets"`
-	Reps int16              `json:"reps"`
+	WorkoutId    primitive.ObjectID `json:"workoutId"`
+	ExerciseName string             `json:"exerciseName"`
+	Sets         int16              `json:"sets"`
+	Reps         int16              `json:"reps"`
+	Weight       int16              `json:"weight"`
+	Description  string             `json:"description"`
 }
 
-func goDotEnvVariable(key string) string {
+func GoDotEnvVariable(key string) string {
 
 	// load .env file
 	err := godotenv.Load("../.env")
@@ -37,7 +41,7 @@ func goDotEnvVariable(key string) string {
 // DB connection string
 // for localhost mongoDB
 // const connectionString = "mongodb://localhost:27017"
-var value = goDotEnvVariable("mongodbConnectString")
+var value = GoDotEnvVariable("mongodbConnectString")
 var connectionString = value
 
 // Database Name
@@ -99,4 +103,9 @@ func removeIDFromArray(initArray []primitive.ObjectID, badId primitive.ObjectID)
 		}
 	}
 	return finalArr
+}
+
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
 }

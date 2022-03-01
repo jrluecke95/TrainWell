@@ -8,10 +8,40 @@ import (
 	"net/http"
 	"server/models"
 
+	"github.com/gorilla/sessions"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+type LoginBody struct {
+	email    string `json:"email"`
+	password string `json:"string"`
+}
+
+func CoachLogin(res http.ResponseWriter, req *http.Request) {
+	var (
+		// key must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256)
+		key   = []byte(GoDotEnvVariable("SESSION_KEY"))
+		store = sessions.NewCookieStore(key)
+	)
+
+	session, _ := store.Get(req, "cookie-name")
+	loginInfo := LoginBody{}
+	json.NewDecoder(req.Body).Decode(loginInfo)
+
+	var result = &models.Coach{}
+	duplicateEmailErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(loginInfo.email)}).Decode(&result)
+
+	fmt.Println((duplicateEmailErr))
+
+	// Authentication goes here
+	// ...
+
+	// Set user as authenticated
+	session.Values["authenticated"] = true
+	session.Save(req, res)
+}
 
 func CreateCoach(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("content-type", "application/json")
@@ -27,8 +57,8 @@ func CreateCoach(res http.ResponseWriter, req *http.Request) {
 }
 
 func createCoach(coach models.Coach, res http.ResponseWriter) error {
-	duplicateEmailErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(coach.Email)})
-	duplicatePhoneErr := coachCollection.FindOne(context.Background(), bson.M{"phonenumber": string(coach.PhoneNumber)})
+	duplicateEmailErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(coach.PersonalInfo.Email)})
+	duplicatePhoneErr := coachCollection.FindOne(context.Background(), bson.M{"phonenumber": string(coach.PersonalInfo.PhoneNumber)})
 
 	if duplicateEmailErr.Err() != mongo.ErrNoDocuments {
 		errString := "email already in use for coach"
@@ -41,6 +71,10 @@ func createCoach(coach models.Coach, res http.ResponseWriter) error {
 		http.Error(res, errString, 400)
 		return errors.New(errString)
 	}
+
+	// TODO do i need to do something with this error
+	hash, _ := HashPassword(coach.PersonalInfo.Password)
+	coach.PersonalInfo.Password = hash
 
 	_, err := coachCollection.InsertOne(context.Background(), coach)
 

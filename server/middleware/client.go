@@ -10,6 +10,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func CreateClient(res http.ResponseWriter, req *http.Request) {
@@ -27,17 +28,16 @@ func CreateClient(res http.ResponseWriter, req *http.Request) {
 }
 
 func createClient(client models.Client, res http.ResponseWriter) error {
-	var result = &models.Client{}
-	duplicateEmailErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(client.PersonalInfo.Email)}).Decode(&result)
-	duplicatePhoneErr := clientCollection.FindOne(context.Background(), bson.M{"phonenumber": string(client.PersonalInfo.PhoneNumber)}).Decode(&result)
+	duplicateEmailErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(client.PersonalInfo.Email)})
+	duplicatePhoneErr := clientCollection.FindOne(context.Background(), bson.M{"phonenumber": string(client.PersonalInfo.PhoneNumber)})
 
-	if duplicateEmailErr == nil {
+	if duplicateEmailErr.Err() != mongo.ErrNoDocuments {
 		errString := "email already in use for client"
 		http.Error(res, errString, 400)
 		return errors.New(errString)
 	}
 
-	if duplicatePhoneErr == nil {
+	if duplicatePhoneErr.Err() != mongo.ErrNoDocuments {
 		errString := "phone already in use for client"
 		http.Error(res, errString, 400)
 		return errors.New(errString)

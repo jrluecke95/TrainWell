@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"server/models"
 
 	"github.com/gorilla/sessions"
@@ -15,32 +16,47 @@ import (
 )
 
 type LoginBody struct {
-	email    string `json:"email"`
-	password string `json:"string"`
+	Email    string `json:"email"`
+	Password string `json:"string"`
 }
 
 func CoachLogin(res http.ResponseWriter, req *http.Request) {
-	var (
-		// key must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256)
-		key   = []byte(GoDotEnvVariable("SESSION_KEY"))
-		store = sessions.NewCookieStore(key)
-	)
-
-	session, _ := store.Get(req, "cookie-name")
-	loginInfo := LoginBody{}
+	loginInfo := &LoginBody{}
 	json.NewDecoder(req.Body).Decode(loginInfo)
+	err := coachLogin(loginInfo, req, res)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	json.NewEncoder(res).Encode("successful login")
+}
+
+func coachLogin(loginInfo *LoginBody, req *http.Request, res http.ResponseWriter) error {
+	// TODO actually set up env
+	var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+	session, _ := store.Get(req, "coach token")
 
 	var result = &models.Coach{}
-	duplicateEmailErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(loginInfo.email)}).Decode(&result)
+	coachErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(loginInfo.Email)}).Decode(&result)
 
-	fmt.Println((duplicateEmailErr))
+	if coachErr != mongo.ErrNoDocuments {
+		errString := "no coach found with that email"
+		http.Error(res, errString, 400)
+		return errors.New(errString)
+	}
 
-	// Authentication goes here
-	// ...
+	// function returns true/false based on err or no err
+	match := CheckPasswordHash(loginInfo.Password, result.PersonalInfo.Password)
 
-	// Set user as authenticated
-	session.Values["authenticated"] = true
-	session.Save(req, res)
+	if match {
+		session.Values["authenticated"] = true
+		session.Save(req, res)
+		return nil
+	} else {
+		errString := "invalid password"
+		http.Error(res, errString, http.StatusForbidden)
+		return errors.New(errString)
+	}
 }
 
 func CreateCoach(res http.ResponseWriter, req *http.Request) {

@@ -2,6 +2,8 @@ package models
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
+// i think we will need to make copies of workout plans and store them in the client
+// this allows for them to modify if they want and not effect coach workout as well as tracking weights etc. easier
 type Client struct {
 	ID           primitive.ObjectID   `json:"_id" bson:"_id"`
 	Coaches      []primitive.ObjectID `json:"coaches" bson:"coaches"`
@@ -17,7 +19,7 @@ type Coach struct {
 }
 
 type PersonalInfo struct {
-	FirstName   string `json:"firstnName" bson:"firstName"`
+	FirstName   string `json:"firstName" bson:"firstName"`
 	LastName    string `json:"lastName" bson:"lastName"`
 	Email       string `json:"email" bson:"email"`
 	PhoneNumber string `json:"phoneNumber" bson:"phoneNumber"`
@@ -43,7 +45,7 @@ type Workout struct {
 }
 
 type WorkoutPlan struct {
-	ID       primitive.ObjectID   `json:"_id" bson:"_id"`
-	Name     string               `json:"name" bson:"name"`
-	Workouts []primitive.ObjectID `json:"workouts" bson:"workouts"`
+	ID       primitive.ObjectID `json:"_id" bson:"_id"`
+	Name     string             `json:"name" bson:"name"`
+	Workouts []Workout          `json:"workouts" bson:"workouts"`
 }

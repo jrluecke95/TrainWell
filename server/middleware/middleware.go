@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -112,5 +114,22 @@ func HashPassword(password string) (string, error) {
 
 func CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	fmt.Println(err)
 	return err == nil
+}
+
+func CheckLogin(res http.ResponseWriter, req *http.Request, sessionName string) bool {
+	var store = sessions.NewCookieStore([]byte(GoDotEnvVariable("SESSION_KEY")))
+	session, _ := store.Get(req, sessionName)
+
+	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
+		http.Error(res, "Forbidden", http.StatusForbidden)
+		return false
+	}
+
+	// Print secret message
+	fmt.Fprintln(res, "This coach has a token!")
+
+	return true
+
 }

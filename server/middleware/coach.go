@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"server/models"
 
 	"github.com/gorilla/sessions"
@@ -17,8 +16,13 @@ import (
 
 type LoginBody struct {
 	Email    string `json:"email"`
-	Password string `json:"string"`
+	Password string `json:"password"`
 }
+
+var (
+	store            = sessions.NewCookieStore([]byte(GoDotEnvVariable("SESSION_KEY")))
+	CoachSessionName = "coach-token"
+)
 
 func CoachLogin(res http.ResponseWriter, req *http.Request) {
 	loginInfo := &LoginBody{}
@@ -32,24 +36,28 @@ func CoachLogin(res http.ResponseWriter, req *http.Request) {
 }
 
 func coachLogin(loginInfo *LoginBody, req *http.Request, res http.ResponseWriter) error {
-	// TODO actually set up env
-	var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
-	session, _ := store.Get(req, "coach token")
+	session, _ := store.Get(req, CoachSessionName)
 
+	// fetching coach from emailprovided so we can compare pw's
 	var result = &models.Coach{}
-	coachErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(loginInfo.Email)}).Decode(&result)
+	coachErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(loginInfo.Email)}).Decode(&result)
 
-	if coachErr != mongo.ErrNoDocuments {
+	// checking to see if anything found and throwing err if nothing found
+	if coachErr == mongo.ErrNoDocuments {
 		errString := "no coach found with that email"
 		http.Error(res, errString, 400)
 		return errors.New(errString)
 	}
 
 	// function returns true/false based on err or no err
+	//comparing provided password along with pw from db
 	match := CheckPasswordHash(loginInfo.Password, result.PersonalInfo.Password)
 
+	// creating session or throwing error if pw match/doesn't match
 	if match {
 		session.Values["authenticated"] = true
+		session.Values["email"] = result.PersonalInfo.Email
+		session.Values["id"] = result.ID.Hex()
 		session.Save(req, res)
 		return nil
 	} else {
@@ -73,8 +81,8 @@ func CreateCoach(res http.ResponseWriter, req *http.Request) {
 }
 
 func createCoach(coach models.Coach, res http.ResponseWriter) error {
-	duplicateEmailErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(coach.PersonalInfo.Email)})
-	duplicatePhoneErr := coachCollection.FindOne(context.Background(), bson.M{"phonenumber": string(coach.PersonalInfo.PhoneNumber)})
+	duplicateEmailErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(coach.PersonalInfo.Email)})
+	duplicatePhoneErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.phoneNumber": string(coach.PersonalInfo.PhoneNumber)})
 
 	if duplicateEmailErr.Err() != mongo.ErrNoDocuments {
 		errString := "email already in use for coach"
@@ -91,6 +99,7 @@ func createCoach(coach models.Coach, res http.ResponseWriter) error {
 	// TODO do i need to do something with this error
 	hash, _ := HashPassword(coach.PersonalInfo.Password)
 	coach.PersonalInfo.Password = hash
+	fmt.Println(coach.PersonalInfo.Password)
 
 	_, err := coachCollection.InsertOne(context.Background(), coach)
 
@@ -148,10 +157,10 @@ func AssignCoach(res http.ResponseWriter, req *http.Request) {
 
 func assignCoach(body AssignCoachBody, res http.ResponseWriter) error {
 	clientResult := &models.Client{}
-	clientErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(body.ClientEmail)}).Decode(&clientResult)
+	clientErr := clientCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(body.ClientEmail)}).Decode(&clientResult)
 
 	coachResult := &models.Coach{}
-	coachErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(body.CoachEmail)}).Decode(&coachResult)
+	coachErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(body.CoachEmail)}).Decode(&coachResult)
 
 	// if client is not found throw error
 	if clientErr == mongo.ErrNoDocuments {

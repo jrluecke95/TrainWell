@@ -34,10 +34,10 @@ func Router() *mux.Router {
 
 	//workoutplans
 	router.HandleFunc("/api/workoutPlan", middleware.CreateWorkoutPlan).Methods("POST")
-	router.HandleFunc("/api/workoutPlan/addWorkout", middleware.AddWorkoutToPlan).Methods("POST")
+	// router.HandleFunc("/api/workoutPlan/addWorkout", middleware.AddWorkoutToPlan).Methods("POST")
 
-	//exercises
-	router.HandleFunc("/api/workout/exercise", middleware.AddExerciseToWorkout).Methods("POST")
+	// //exercises
+	// router.HandleFunc("/api/workout/exercise", middleware.AddExerciseToWorkout).Methods("POST")
 
 	return router
 }

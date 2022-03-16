@@ -14,7 +14,7 @@ type Coach struct {
 	ID           primitive.ObjectID   `json:"_id" bson:"_id"`
 	Clients      []primitive.ObjectID `json:"clients" bson:"clients"`
 	Workouts     []Workout            `json:"workouts" bson:"workouts"`
-	WorkoutPlans []WorkoutPlan        `json:"workoutPlans" bson:"workoutPlans"`
+	WorkoutPlans []primitive.ObjectID `json:"workoutPlans" bson:"workoutPlans"`
 	PersonalInfo PersonalInfo         `json:"personalInfo" bson:"personalInfo"`
 }
 
@@ -23,7 +23,7 @@ type PersonalInfo struct {
 	LastName    string `json:"lastName" bson:"lastName"`
 	Email       string `json:"email" bson:"email"`
 	PhoneNumber string `json:"phoneNumber" bson:"phoneNumber"`
-	Password    string `json:"password" bson:"password"`
+	Password    string `gorm:"type:varchar(100) json:"password" bson:"password"`
 }
 
 type Exercise struct {
@@ -46,6 +46,7 @@ type Workout struct {
 
 type WorkoutPlan struct {
 	ID       primitive.ObjectID `json:"_id" bson:"_id"`
+	CoachID  primitive.ObjectID `json:"coachID" bson:"coachID"`
 	Name     string             `json:"name" bson:"name"`
 	Workouts []Workout          `json:"workouts" bson:"workouts"`
 }

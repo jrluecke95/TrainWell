@@ -17,18 +17,22 @@ type createWorkoutPlanBody struct {
 	Name string `json:"name"`
 }
 
-type addWorkoutBody struct {
+type addNewWorkoutBody struct {
 	WorkoutPlanID primitive.ObjectID `json:"workoutPlanId"`
 }
 
+type addExistingWorkoutBody struct {
+	WorkoutPlanID primitive.ObjectID `json:"workoutPlanId"`
+	WorkoutID     primitive.ObjectID `json:"workoutId"`
+}
+
 type addExerciseToWorkoutBody struct {
-	WorkoutPlanID primitive.ObjectID `json:"workoutPlanId`
-	WorkoutID     primitive.ObjectID `json:"workoutID"`
-	Exercise      models.Exercise    `json:"exercise"`
-	Sets          int16              `json:"sets"`
-	Reps          int16              `json:"reps"`
-	Weight        int16              `json:"weight"`
-	Description   string             `json:"description"`
+	WorkoutID   primitive.ObjectID `json:"workoutID"`
+	Exercise    models.Exercise    `json:"exercise"`
+	Sets        int16              `json:"sets"`
+	Reps        int16              `json:"reps"`
+	Weight      int16              `json:"weight"`
+	Description string             `json:"description"`
 }
 
 func CreateWorkoutPlan(res http.ResponseWriter, req *http.Request) {
@@ -114,126 +118,183 @@ func createWorkoutPlan(workoutPlan models.WorkoutPlan, res http.ResponseWriter, 
 	return nil
 }
 
-// func AddWorkoutToPlan(res http.ResponseWriter, req *http.Request) {
-// 	res.Header().Add("content-type", "application/json")
-// 	var addWorkoutBody addWorkoutBody
-// 	var workout models.Workout
-// 	json.NewDecoder(req.Body).Decode(&addWorkoutBody)
+func AddNewWorkoutToPlan(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var addNewWorkoutBody addNewWorkoutBody
+	var workout models.Workout
+	json.NewDecoder(req.Body).Decode(&addNewWorkoutBody)
 
-// 	workout.ID = primitive.NewObjectID()
+	workout.ID = primitive.NewObjectID()
 
-// 	err := addWorkoutToPlan(addWorkoutBody.WorkoutPlanID, &workout, req, res)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
+	err := addNewWorkoutToPlan(addNewWorkoutBody.WorkoutPlanID, &workout, req, res)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-// 	fmt.Println("succesfully added workout to plan")
+	fmt.Println("succesfully added new workout to plan")
 
-// 	json.NewEncoder(res).Encode(addWorkoutBody)
-// }
+	json.NewEncoder(res).Encode(addNewWorkoutBody)
+}
 
-// func addWorkoutToPlan(workoutPlanID primitive.ObjectID, workout *models.Workout, req *http.Request, res http.ResponseWriter) error {
-// 	session, _ := store.Get(req, CoachSessionName)
+func addNewWorkoutToPlan(workoutPlanID primitive.ObjectID, workout *models.Workout, req *http.Request, res http.ResponseWriter) error {
+	// checking to see if coach is logged in
+	if !CheckLogin(res, req, CoachSessionName) {
+		errString := "not logged in"
 
-// 	// finding coach to access workout plans
-// 	var coachResult models.Coach
+		http.Error(res, errString, http.StatusForbidden)
+		return errors.New(errString)
+	}
 
-// 	findCoachErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.email": session.Values["email"]}).Decode(&coachResult)
+	_, createWorkoutErr := workoutCollection.InsertOne(context.Background(), workout)
 
-// 	if findCoachErr != nil {
-// 		return findCoachErr
-// 	}
+	if createWorkoutErr != nil {
+		errString := "issue with inserting workout to workout document"
+		http.Error(res, errString, 400)
+		return errors.New(errString)
+	}
 
-// 	// find workout plan
-// 	var findWorkoutPlan *models.WorkoutPlan
-// 	for _, workoutPlan := range coachResult.WorkoutPlans {
-// 		if workoutPlan.ID == workoutPlanID {
-// 			findWorkoutPlan = &workoutPlan
-// 		}
-// 	}
+	var workoutPlan = &models.WorkoutPlan{}
 
-// 	findWorkoutPlan.Workouts = append(findWorkoutPlan.Workouts, *workout)
+	findWorkoutPlanErr := workoutPlanCollection.FindOne(context.Background(), bson.M{"_id": workoutPlanID}).Decode(&workoutPlan)
 
-// 	workoutPlanUpdate := bson.M{
-// 		"$set": bson.M{
-// 			"workoutPlans": &findWorkoutPlan,
-// 		},
-// 	}
+	if findWorkoutPlanErr == mongo.ErrNoDocuments {
+		errString := "no workout plan found"
+		http.Error(res, errString, 400)
+		return errors.New(errString)
+	}
 
-// 	// checking for error in updating workoutplan and setting error equal to what is returned
-// 	_, coachUpdateErr := coachCollection.UpdateByID(context.Background(), coachResult.ID, workoutPlanUpdate)
+	workoutPlan.Workouts = append(workoutPlan.Workouts, workout.ID)
 
-// 	if coachUpdateErr != nil {
-// 		return coachUpdateErr
-// 	}
-// 	return nil
-// }
+	workoutPlanUpdate := bson.M{
+		"$set": bson.M{
+			"Workouts": workoutPlan.Workouts,
+		},
+	}
 
-// func AddExerciseToWorkout(res http.ResponseWriter, req *http.Request) {
-// 	res.Header().Add("content-type", "application/json")
-// 	var addExerciseToWorkoutBody addExerciseToWorkoutBody
-// 	var exerciseDetails models.ExerciseDetails
-// 	json.NewDecoder(req.Body).Decode(&addExerciseToWorkoutBody)
+	// checking for error in updating workoutplan and setting error equal to what is returned
+	_, workoutPlanUpdateErr := workoutPlanCollection.UpdateByID(context.Background(), workoutPlan.ID, workoutPlanUpdate)
 
-// 	exerciseDetails.ID = primitive.NewObjectID()
+	if workoutPlanUpdateErr != nil {
+		return workoutPlanUpdateErr
+	}
 
-// 	err := addExerciseToWorkout(addExerciseToWorkoutBody, req, res)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
+	return nil
+}
 
-// 	fmt.Println("succesfully added workout to plan")
+func AddExistingWorkoutToPlan(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var addExistingWorkoutBody addExistingWorkoutBody
+	json.NewDecoder(req.Body).Decode(&addExistingWorkoutBody)
 
-// 	json.NewEncoder(res).Encode(exerciseDetails)
-// }
+	err := addExistingWorkoutToPlan(addExistingWorkoutBody, req, res)
 
-// func addExerciseToWorkout(body addExerciseToWorkoutBody, req *http.Request, res http.ResponseWriter) error {
-// 	// checking to see if coach is logged in
-// 	// TODO this through the loggin coacherr should probably be put into a function becasue it is going to be reuse dalot
-// 	if !CheckLogin(res, req, CoachSessionName) {
-// 		errString := "not logged in"
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-// 		http.Error(res, errString, http.StatusForbidden)
-// 		return errors.New(errString)
-// 	}
-// 	// creating session if coach is logged in
-// 	session, _ := store.Get(req, CoachSessionName)
+	fmt.Println("succesfully added existing workout to plan")
+}
 
-// 	// converting id stored in session back to objevt id to search db
-// 	value := session.Values["id"]
-// 	str := fmt.Sprintf("%v", value)
-// 	coachID, err := primitive.ObjectIDFromHex(str)
-// 	if err != nil {
-// 		return err
-// 	}
+func addExistingWorkoutToPlan(body addExistingWorkoutBody, req *http.Request, res http.ResponseWriter) error {
+	// checking to see if coach is logged in
+	if !CheckLogin(res, req, CoachSessionName) {
+		errString := "not logged in"
 
-// 	// finding coach with session info
-// 	var coach = &models.Coach{}
-// 	coachErr := coachCollection.FindOne(context.Background(), bson.D{primitive.E{Key: "_id", Value: coachID}}).Decode(&coach)
+		http.Error(res, errString, http.StatusForbidden)
+		return errors.New(errString)
+	}
 
-// 	if coachErr == mongo.ErrNoDocuments {
-// 		errString := "no coach found"
-// 		http.Error(res, errString, 400)
-// 		return errors.New(errString)
-// 	}
+	var workoutPlan = &models.WorkoutPlan{}
 
-// 	//TODO rework db
+	findWorkoutPlanErr := workoutPlanCollection.FindOne(context.Background(), bson.M{"_id": body.WorkoutPlanID}).Decode(&workoutPlan)
 
-// 	//find the workout plan
-// 	//update the workout
-// 	//put the workout back in
-// 	// update whole workout plan array
+	if findWorkoutPlanErr == mongo.ErrNoDocuments {
+		errString := "no workout plan found"
+		http.Error(res, errString, 400)
+		return errors.New(errString)
+	}
 
-// 	// need to locate workout within workout plan and update that array
-// 	// if workoutErr == mongo.ErrNoDocuments {
-// 	// 	errString := "no workout found"
-// 	// 	http.Error(res, errString, 400)
-// 	// 	return errors.New(errString)
-// 	// }
+	workoutPlan.Workouts = append(workoutPlan.Workouts, body.WorkoutID)
 
-// 	// fmt.Println("result", workoutResult)
+	workoutPlanUpdate := bson.M{
+		"$set": bson.M{
+			"Workouts": workoutPlan.Workouts,
+		},
+	}
 
-// 	return nil
-// }
+	// checking for error in updating workoutplan and setting error equal to what is returned
+	_, workoutPlanUpdateErr := workoutPlanCollection.UpdateByID(context.Background(), workoutPlan.ID, workoutPlanUpdate)
+
+	if workoutPlanUpdateErr != nil {
+		return workoutPlanUpdateErr
+	}
+
+	return nil
+
+}
+
+func AddExerciseToWorkout(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	var addExerciseToWorkoutBody addExerciseToWorkoutBody
+	json.NewDecoder(req.Body).Decode(&addExerciseToWorkoutBody)
+
+	err := addExerciseToWorkout(addExerciseToWorkoutBody, req, res)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("succesfully added workout to plan")
+
+	json.NewEncoder(res).Encode(exerciseDetails)
+}
+
+func addExerciseToWorkout(body addExerciseToWorkoutBody, req *http.Request, res http.ResponseWriter) error {
+	// checking to see if coach is logged in
+	if !CheckLogin(res, req, CoachSessionName) {
+		errString := "not logged in"
+
+		http.Error(res, errString, http.StatusForbidden)
+		return errors.New(errString)
+	}
+
+	exerciseDetails := models.ExerciseDetails{
+		ID:          primitive.NewObjectID(),
+		Exercise:    body.Exercise,
+		Sets:        body.Sets,
+		Reps:        body.Reps,
+		Weight:      body.Weight,
+		Description: body.Description,
+	}
+
+	workout := &models.Workout{}
+
+	//find the workout
+	findWorkoutErr := workoutCollection.FindOne(context.Background(), bson.M{"_id": body.WorkoutID}).Decode(&workout)
+
+	if findWorkoutErr == mongo.ErrNoDocuments {
+		errString := "workout was not found"
+		http.Error(res, errString, 400)
+		return errors.New(errString)
+	}
+
+	workout.ExercisesDetails = append(workout.ExercisesDetails, exerciseDetails)
+
+	workoutUpdate := bson.M{
+		"$set": bson.M{
+			"exercisesDetails": workout.ExercisesDetails,
+		},
+	}
+
+	_, updateWorkoutErr := workoutCollection.UpdateByID(context.Background(), workout.ID, workoutUpdate)
+
+	if updateWorkoutErr != nil {
+		errString := "issue updating workout with exercise details"
+		http.Error(res, errString, 400)
+		return errors.New(errString)
+	}
+
+	return nil
+}

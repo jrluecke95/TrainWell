@@ -45,8 +45,8 @@ type Workout struct {
 }
 
 type WorkoutPlan struct {
-	ID       primitive.ObjectID `json:"_id" bson:"_id"`
-	CoachID  primitive.ObjectID `json:"coachID" bson:"coachID"`
-	Name     string             `json:"name" bson:"name"`
-	Workouts []Workout          `json:"workouts" bson:"workouts"`
+	ID       primitive.ObjectID   `json:"_id" bson:"_id"`
+	CoachID  primitive.ObjectID   `json:"coachID" bson:"coachID"`
+	Workouts []primitive.ObjectID `json:"workouts" bson:"workouts"`
+	Name     string               `json:"name" bson:"name"`
 }

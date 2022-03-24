@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"server/models"
+	"time"
 
-	"github.com/gorilla/sessions"
+	"github.com/golang-jwt/jwt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,11 +20,6 @@ type LoginBody struct {
 	Password string `json:"password"`
 }
 
-var (
-	store            = sessions.NewCookieStore([]byte(GoDotEnvVariable("SESSION_KEY")))
-	CoachSessionName = "coach-token"
-)
-
 func CoachLogin(res http.ResponseWriter, req *http.Request) {
 	loginInfo := &LoginBody{}
 	json.NewDecoder(req.Body).Decode(loginInfo)
@@ -32,15 +28,14 @@ func CoachLogin(res http.ResponseWriter, req *http.Request) {
 		fmt.Println(err)
 		return
 	}
-	json.NewEncoder(res).Encode("successful login")
 }
 
 func coachLogin(loginInfo *LoginBody, req *http.Request, res http.ResponseWriter) error {
 	session, _ := store.Get(req, CoachSessionName)
 
 	// fetching coach from emailprovided so we can compare pw's
-	var result = &models.Coach{}
-	coachErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(loginInfo.Email)}).Decode(&result)
+	coach := &models.Coach{}
+	coachErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(loginInfo.Email)}).Decode(&coach)
 
 	// checking to see if anything found and throwing err if nothing found
 	if coachErr == mongo.ErrNoDocuments {
@@ -51,14 +46,38 @@ func coachLogin(loginInfo *LoginBody, req *http.Request, res http.ResponseWriter
 
 	// function returns true/false based on err or no err
 	//comparing provided password along with pw from db
-	match := CheckPasswordHash(loginInfo.Password, result.PersonalInfo.Password)
+	match := CheckPasswordHash(loginInfo.Password, coach.PersonalInfo.Password)
+
+	expirationTime := time.Now().Add(5 * time.Minute)
+
+	claims := Claims{
+		jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+		coach.PersonalInfo.Email,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	// Create the JWT string
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		// If there is an error in creating the JWT return an internal server error
+		errString := "issue with jwt token"
+		http.Error(res, errString, http.StatusForbidden)
+		return errors.New(errString)
+	}
 
 	// creating session or throwing error if pw match/doesn't match
 	if match {
-		session.Values["authenticated"] = true
-		session.Values["email"] = result.PersonalInfo.Email
-		session.Values["id"] = result.ID.Hex()
+		http.SetCookie(res, &http.Cookie{
+			Name:    "token",
+			Value:   tokenString,
+			Expires: expirationTime,
+		})
+		session.Values["email"] = coach.PersonalInfo.Email
+		session.Values["id"] = coach.ID.Hex()
 		session.Save(req, res)
+		json.NewEncoder(res).Encode(coach)
 		return nil
 	} else {
 		errString := "invalid password"
@@ -99,7 +118,6 @@ func createCoach(coach models.Coach, res http.ResponseWriter) error {
 	// TODO do i need to do something with this error
 	hash, _ := HashPassword(coach.PersonalInfo.Password)
 	coach.PersonalInfo.Password = hash
-	fmt.Println(coach.PersonalInfo.Password)
 
 	_, err := coachCollection.InsertOne(context.Background(), coach)
 

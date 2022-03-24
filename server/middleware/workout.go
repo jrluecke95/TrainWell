@@ -50,20 +50,12 @@ func CreateWorkoutPlan(res http.ResponseWriter, req *http.Request) {
 
 		return
 	}
-
-	fmt.Println("succesfully created workout plan")
-
 	json.NewEncoder(res).Encode(workoutPlan)
 }
 
 func createWorkoutPlan(workoutPlan models.WorkoutPlan, res http.ResponseWriter, req *http.Request) error {
-	// checking to see if coach is logged in
-	if !CheckLogin(res, req, CoachSessionName) {
-		errString := "not logged in"
-
-		http.Error(res, errString, http.StatusForbidden)
-		return errors.New(errString)
-	}
+	// checking to see if coach has valid jwt
+	TokenCheck(res, req)
 	// creating session if coach is logged in
 	session, _ := store.Get(req, CoachSessionName)
 
@@ -138,13 +130,8 @@ func AddNewWorkoutToPlan(res http.ResponseWriter, req *http.Request) {
 }
 
 func addNewWorkoutToPlan(workoutPlanID primitive.ObjectID, workout *models.Workout, req *http.Request, res http.ResponseWriter) error {
-	// checking to see if coach is logged in
-	if !CheckLogin(res, req, CoachSessionName) {
-		errString := "not logged in"
-
-		http.Error(res, errString, http.StatusForbidden)
-		return errors.New(errString)
-	}
+	// checking to see if coach has jwt
+	TokenCheck(res, req)
 
 	_, createWorkoutErr := workoutCollection.InsertOne(context.Background(), workout)
 
@@ -198,13 +185,8 @@ func AddExistingWorkoutToPlan(res http.ResponseWriter, req *http.Request) {
 }
 
 func addExistingWorkoutToPlan(body addExistingWorkoutBody, req *http.Request, res http.ResponseWriter) error {
-	// checking to see if coach is logged in
-	if !CheckLogin(res, req, CoachSessionName) {
-		errString := "not logged in"
-
-		http.Error(res, errString, http.StatusForbidden)
-		return errors.New(errString)
-	}
+	// checking to see if coach has jwt
+	TokenCheck(res, req)
 
 	var workoutPlan = &models.WorkoutPlan{}
 
@@ -252,13 +234,8 @@ func AddExerciseToWorkout(res http.ResponseWriter, req *http.Request) {
 }
 
 func addExerciseToWorkout(body addExerciseToWorkoutBody, req *http.Request, res http.ResponseWriter) error {
-	// checking to see if coach is logged in
-	if !CheckLogin(res, req, CoachSessionName) {
-		errString := "not logged in"
-
-		http.Error(res, errString, http.StatusForbidden)
-		return errors.New(errString)
-	}
+	// checking to see if coach has jwt
+	TokenCheck(res, req)
 
 	exerciseDetails := models.ExerciseDetails{
 		ID:          primitive.NewObjectID(),

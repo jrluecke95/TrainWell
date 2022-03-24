@@ -7,11 +7,80 @@ import (
 	"fmt"
 	"net/http"
 	"server/models"
+	"time"
 
+	"github.com/golang-jwt/jwt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+func ClientLogin(res http.ResponseWriter, req *http.Request) {
+	loginInfo := &LoginBody{}
+	json.NewDecoder(req.Body).Decode(loginInfo)
+	err := clientLogin(loginInfo, req, res)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func clientLogin(loginInfo *LoginBody, req *http.Request, res http.ResponseWriter) error {
+	session, _ := store.Get(req, ClientSessionName)
+
+	// fetching coach from emailprovided so we can compare pw's
+	var client = &models.Client{}
+	clientErr := clientCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(loginInfo.Email)}).Decode(&client)
+
+	// checking to see if anything found and throwing err if nothing found
+	if clientErr == mongo.ErrNoDocuments {
+		errString := "no client found with that email"
+		http.Error(res, errString, 400)
+		return errors.New(errString)
+	}
+
+	// function returns true/false based on err or no err
+	//comparing provided password along with pw from db
+	match := CheckPasswordHash(loginInfo.Password, client.PersonalInfo.Password)
+
+	expirationTime := time.Now().Add(5 * time.Minute)
+
+	claims := Claims{
+		jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+		client.PersonalInfo.Email,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	// Create the JWT string
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		// If there is an error in creating the JWT return an internal server error
+		errString := "issue with jwt token"
+		http.Error(res, errString, http.StatusForbidden)
+		return errors.New(errString)
+	}
+
+	// creating session or throwing error if pw match/doesn't match
+	if match {
+		http.SetCookie(res, &http.Cookie{
+			Name:    "token",
+			Value:   tokenString,
+			Expires: expirationTime,
+		})
+		session.Values["email"] = client.PersonalInfo.Email
+		session.Values["id"] = client.ID.Hex()
+		session.Save(req, res)
+		// this is done here to avoid sending headers prematurely ahead of cookie being set
+		json.NewEncoder(res).Encode(client)
+		return nil
+	} else {
+		errString := "invalid password"
+		http.Error(res, errString, http.StatusForbidden)
+		return errors.New(errString)
+	}
+}
 
 func CreateClient(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("content-type", "application/json")

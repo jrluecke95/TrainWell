@@ -15,7 +15,7 @@ export default function ClientRegisterPage() {
         ...form,
         [e.target.name]: e.target.value
     })
-}
+  }
 
   const handleSubmit = (e: any) => {
     e.preventDefault()

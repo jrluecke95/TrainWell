@@ -14,7 +14,7 @@ func Router() *mux.Router {
 	//coaches
 	router.HandleFunc("/api/coach/create", middleware.CreateCoach).Methods("POST")
 	router.HandleFunc("/api/coaches", middleware.GetCoaches).Methods("GET")
-	router.HandleFunc("/api/coach/workouts", middleware.GetCoachWorkouts).Methods("GET")
+	router.HandleFunc("/api/coach/workoutPlans", middleware.GetCoachWorkoutPlans).Methods("GET")
 	//login
 	router.HandleFunc("/api/coach/login", middleware.CoachLogin).Methods("POST")
 

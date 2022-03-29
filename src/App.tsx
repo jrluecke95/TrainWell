@@ -6,7 +6,7 @@ import CoachLoginPage from './Pages/CoachLoginPage';
 import CoachRegisterPage from './Pages/CoachRegisterPage';
 import CoachWorkoutPage from './Pages/CoachWorkoutPage';
 import CoachWorkoutsPage from './Pages/CoachWorkoutsPage';
-import CreateWorkoutPage from './Pages/CreateWorkoutPage';
+import CreateWorkoutPlanPage from './Pages/CreateWorkoutPlanPage';
 import HomePage from './Pages/HomePage';
 
 function App() {
@@ -20,7 +20,7 @@ function App() {
           <Route path='/coach/login' element={<CoachLoginPage />} />
           <Route path='/client/register' element={<ClientRegisterPage />} />
           <Route path='/client/login' element={<ClientLoginPage />} />
-          <Route path='/coach/workoutPlan/create' element={ <CreateWorkoutPage /> }/>
+          <Route path='/coach/workoutPlan/create' element={ <CreateWorkoutPlanPage /> }/>
           <Route path='/coach/workoutPlans' element={ <CoachWorkoutsPage />} />
           <Route path='coach/workoutPlan/:id' element={ <CoachWorkoutPage/> } />
         </Routes> 

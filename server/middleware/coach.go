@@ -288,9 +288,9 @@ func unassignCoach(body AssignCoachBody, res http.ResponseWriter) error {
 	return err
 }
 
-func GetCoachWorkouts(res http.ResponseWriter, req *http.Request) {
+func GetCoachWorkoutPlans(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("content-type", "application/json")
-	payload, err := getCoachWorkouts(res, req)
+	payload, err := getCoachWorkoutPlans(res, req)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -298,7 +298,7 @@ func GetCoachWorkouts(res http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(res).Encode(payload)
 }
 
-func getCoachWorkouts(res http.ResponseWriter, req *http.Request) ([]models.WorkoutPlan, error) {
+func getCoachWorkoutPlans(res http.ResponseWriter, req *http.Request) ([]models.WorkoutPlan, error) {
 	TokenCheck(res, req)
 	// creating session if coach is logged in
 	session, _ := store.Get(req, CoachSessionName)

@@ -294,11 +294,11 @@ func getWorkoutPlanDetails(req *http.Request, res http.ResponseWriter, workoutPl
 	TokenCheck(res, req)
 
 	workouts := []models.Workout{}
-	fmt.Println(workoutPlanID)
+	// turning string given from params back into objectID
+	idPrimitive, _ := primitive.ObjectIDFromHex(workoutPlanID)
 
-	// TODO this is fucked
 	workoutPlan := &models.WorkoutPlan{}
-	err := workoutPlanCollection.FindOne(context.Background(), bson.M{"_id": workoutPlanID}).Decode(&workoutPlan)
+	err := workoutPlanCollection.FindOne(context.Background(), bson.M{"_id": idPrimitive}).Decode(&workoutPlan)
 
 	if err != nil {
 		fmt.Println(err)
@@ -307,15 +307,16 @@ func getWorkoutPlanDetails(req *http.Request, res http.ResponseWriter, workoutPl
 	}
 
 	workoutIds := workoutPlan.Workouts
-	for workoutId := range workoutIds {
-		workout := models.Workout{}
-		workoutErr := workoutCollection.FindOne(context.Background(), bson.M{"_id": workoutId}).Decode(workout)
+	//TODO improve error handling here
+	for _, workoutId := range workoutIds {
+		workout := &models.Workout{}
+		workoutErr := workoutCollection.FindOne(context.Background(), bson.M{"_id": workoutId}).Decode(&workout)
 		if workoutErr != nil {
+			fmt.Println(workoutErr)
 			return nil, workoutErr
 		}
-		workouts = append(workouts, workout)
+		workouts = append(workouts, *workout)
 	}
-
 	return workouts, nil
 
 }

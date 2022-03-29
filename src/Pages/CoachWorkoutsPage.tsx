@@ -4,14 +4,13 @@ import { NavLink } from "react-router-dom";
 
 
 export default function CoachorkoutsPage() {
-  const [workouts, setWorkouts] = useState([]);
+  const [workoutPlans, setWorkoutPlans] = useState([]);
 
   useEffect(() => {
-    fetch('/api/coach/workouts')
+    fetch('/api/coach/workoutPlans')
     .then(res => res.json())
     .then(data => {
-      console.log(data)
-      setWorkouts(data)
+      setWorkoutPlans(data)
     })
   }, [])
 
@@ -19,7 +18,7 @@ export default function CoachorkoutsPage() {
     <>
       <h2>Coach Workouts</h2>
       <div>
-        {workouts.map((workout: any) => (
+        {workoutPlans.map((workout: any) => (
           <>
             <Button
             component={NavLink}

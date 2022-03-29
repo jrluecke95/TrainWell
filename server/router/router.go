@@ -14,6 +14,7 @@ func Router() *mux.Router {
 	//coaches
 	router.HandleFunc("/api/coach/create", middleware.CreateCoach).Methods("POST")
 	router.HandleFunc("/api/coaches", middleware.GetCoaches).Methods("GET")
+	router.HandleFunc("/api/coach/workouts", middleware.GetCoachWorkouts).Methods("GET")
 	//login
 	router.HandleFunc("/api/coach/login", middleware.CoachLogin).Methods("POST")
 
@@ -38,7 +39,7 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/workoutPlan", middleware.CreateWorkoutPlan).Methods("POST")
 	router.HandleFunc("/api/workoutPlan/addNewWorkout", middleware.AddNewWorkoutToPlan).Methods("POST")
 	router.HandleFunc("/api/workoutPlan/addExistingWorkout", middleware.AddExistingWorkoutToPlan).Methods("POST")
-
+	router.HandleFunc("/api/workoutPlan/{id}", middleware.GetWorkoutPlanDetails).Methods("GET")
 	//exercises
 	router.HandleFunc("/api/workout/exercise", middleware.AddExerciseToWorkout).Methods("POST")
 

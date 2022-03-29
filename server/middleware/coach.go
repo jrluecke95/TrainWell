@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"server/models"
 	"time"
@@ -285,4 +286,40 @@ func unassignCoach(body AssignCoachBody, res http.ResponseWriter) error {
 	}
 
 	return err
+}
+
+func GetCoachWorkouts(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	payload, err := getCoachWorkouts(res, req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	json.NewEncoder(res).Encode(payload)
+}
+
+func getCoachWorkouts(res http.ResponseWriter, req *http.Request) ([]models.WorkoutPlan, error) {
+	TokenCheck(res, req)
+	// creating session if coach is logged in
+	session, _ := store.Get(req, CoachSessionName)
+
+	// converting id stored in session back to objevt id to search db
+	value := session.Values["id"]
+	str := fmt.Sprintf("%v", value)
+	coachID, err := primitive.ObjectIDFromHex(str)
+	if err != nil {
+		return nil, err
+	}
+
+	workoutCursors, workoutsErr := workoutPlanCollection.Find(context.Background(), bson.M{"coachID": coachID})
+
+	if workoutsErr != nil {
+		return nil, workoutsErr
+	}
+
+	workouts := []models.WorkoutPlan{}
+	if err = workoutCursors.All(context.TODO(), &workouts); err != nil {
+		log.Fatal(err)
+	}
+	return workouts, nil
 }

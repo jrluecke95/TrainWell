@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"server/models"
 
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -274,4 +275,47 @@ func addExerciseToWorkout(body addExerciseToWorkoutBody, req *http.Request, res 
 	}
 
 	return nil
+}
+
+func GetWorkoutPlanDetails(res http.ResponseWriter, req *http.Request) {
+	params := mux.Vars(req)
+	workoutPlanID := params["id"]
+
+	workoutDetails, err := getWorkoutPlanDetails(req, res, workoutPlanID)
+
+	if err != nil {
+		return
+	}
+
+	json.NewEncoder(res).Encode(workoutDetails)
+}
+
+func getWorkoutPlanDetails(req *http.Request, res http.ResponseWriter, workoutPlanID string) ([]models.Workout, error) {
+	TokenCheck(res, req)
+
+	workouts := []models.Workout{}
+	fmt.Println(workoutPlanID)
+
+	// TODO this is fucked
+	workoutPlan := &models.WorkoutPlan{}
+	err := workoutPlanCollection.FindOne(context.Background(), bson.M{"_id": workoutPlanID}).Decode(&workoutPlan)
+
+	if err != nil {
+		fmt.Println(err)
+		errString := "problem finding workout plan"
+		return nil, errors.New(errString)
+	}
+
+	workoutIds := workoutPlan.Workouts
+	for workoutId := range workoutIds {
+		workout := models.Workout{}
+		workoutErr := workoutCollection.FindOne(context.Background(), bson.M{"_id": workoutId}).Decode(workout)
+		if workoutErr != nil {
+			return nil, workoutErr
+		}
+		workouts = append(workouts, workout)
+	}
+
+	return workouts, nil
+
 }

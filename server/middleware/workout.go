@@ -248,6 +248,7 @@ func addExerciseToWorkout(body addExerciseToWorkoutBody, req *http.Request, res 
 	}
 
 	workout := &models.Workout{}
+	fmt.Println("workout id", body.WorkoutID)
 
 	//find the workout
 	findWorkoutErr := workoutCollection.FindOne(context.Background(), bson.M{"_id": body.WorkoutID}).Decode(&workout)

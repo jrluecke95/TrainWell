@@ -8,7 +8,11 @@ export default function CoachorkoutsPage() {
 
   useEffect(() => {
     fetch('/api/coach/workoutPlans')
-    .then(res => res.json())
+    .then(
+      res => {
+        console.log(res)
+        return res.json()
+    })
     .then(data => {
       setWorkoutPlans(data)
     })

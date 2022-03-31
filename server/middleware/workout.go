@@ -30,9 +30,9 @@ type addExistingWorkoutBody struct {
 type addExerciseToWorkoutBody struct {
 	WorkoutID   primitive.ObjectID `json:"workoutID"`
 	Exercise    models.Exercise    `json:"exercise"`
-	Sets        int16              `json:"sets"`
-	Reps        int16              `json:"reps"`
-	Weight      int16              `json:"weight"`
+	Sets        string             `json:"sets"`
+	Reps        string             `json:"reps"`
+	Weight      string             `json:"weight"`
 	Description string             `json:"description"`
 }
 
@@ -238,17 +238,20 @@ func addExerciseToWorkout(body addExerciseToWorkoutBody, req *http.Request, res 
 	// checking to see if coach has jwt
 	TokenCheck(res, req)
 
+	setsInt := ConvertStringToInt(body.Sets)
+	repsInt := ConvertStringToInt(body.Reps)
+	weightInt := ConvertStringToInt(body.Weight)
+
 	exerciseDetails := models.ExerciseDetails{
 		ID:          primitive.NewObjectID(),
 		Exercise:    body.Exercise,
-		Sets:        body.Sets,
-		Reps:        body.Reps,
-		Weight:      body.Weight,
+		Sets:        setsInt,
+		Reps:        repsInt,
+		Weight:      weightInt,
 		Description: body.Description,
 	}
 
 	workout := &models.Workout{}
-	fmt.Println("workout id", body.WorkoutID)
 
 	//find the workout
 	findWorkoutErr := workoutCollection.FindOne(context.Background(), bson.M{"_id": body.WorkoutID}).Decode(&workout)
@@ -319,5 +322,36 @@ func getWorkoutPlanDetails(req *http.Request, res http.ResponseWriter, workoutPl
 		workouts = append(workouts, *workout)
 	}
 	return workouts, nil
+}
 
+func GetWorkoutDetails(res http.ResponseWriter, req *http.Request) {
+	params := mux.Vars(req)
+	workoutID := params["id"]
+
+	workoutDetails, err := getWorkoutDetails(req, res, workoutID)
+
+	if err != nil {
+		return
+	}
+
+	json.NewEncoder(res).Encode(workoutDetails)
+}
+
+func getWorkoutDetails(req *http.Request, res http.ResponseWriter, workoutID string) (models.Workout, error) {
+	//tokenRes := TokenCheck(res, req)
+	//fmt.Println(tokenRes)
+
+	workout := models.Workout{}
+	// turning string given from params back into objectID
+	idPrimitive, _ := primitive.ObjectIDFromHex(workoutID)
+
+	err := workoutCollection.FindOne(context.Background(), bson.M{"_id": idPrimitive}).Decode(&workout)
+
+	if err != nil {
+		fmt.Println(err)
+		errString := "problem finding workout plan"
+		return workout, errors.New(errString)
+	}
+	//fmt.Println(workout)
+	return workout, nil
 }

@@ -1,12 +1,12 @@
 import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react"
 import { useParams } from "react-router-dom";
+import { WorkoutDetails } from "../Components/WorkoutDetails";
 
-export default function CoachWorkoutPage() {
-  // TODO this state doesn't make sense to have iniated to empty array since state is only one thing - however, it works for now so roll with it
-  const [workouts, setWorkouts] = useState<any>([]);
-  const [exercises, setExercises] = useState<any>([])
+export function CoachWorkoutPage() {
   const { id } = useParams();
+  const [exercises, setExercises] = useState<any>([])
+  
   const [form, setForm] = useState({
     exerciseId: '',
     exerciseName: '',
@@ -15,23 +15,15 @@ export default function CoachWorkoutPage() {
     weight: '',
     description: ''
   })
-
-  useEffect(() => {
-    fetch(`/api/workoutPlan/${id}`)
-    .then(res => res.json())
-    .then(data => {
-      setWorkouts(data)
-    })
-    
-  }, [id])
-// TODO cant get this to stop fetching on form change
+  // TODO cant get this to stop fetching on form change
   useEffect(() => {
     fetch('/api/exercises')
     .then(res => res.json())
     .then(data => {
       setExercises(data)
     })
-  }, [id])
+    
+  }, [])
 
   const handleChange = (e: any) => {
     setForm({
@@ -40,13 +32,8 @@ export default function CoachWorkoutPage() {
     })
   }
 
-  // TODO need to restructure wokrout plan vs workout page
-  // need a workout plan page that displays workouts
-  // then this page should go on each workout 
-  // right now this page serves as both and it is fucked
-
   const handleSubmit = (e: any) => {
-    console.log('this is working')
+    console.log(form)
     e.preventDefault()
     const data = {
       workoutID: id,
@@ -59,16 +46,14 @@ export default function CoachWorkoutPage() {
       weight: form.weight,
       description: form.description
     }
-    console.log(data)
-
     fetch('/api/workout/exercise', {
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',
       body: JSON.stringify(data),
     })
     .then(res => {
-      console.log(res)
-    return res.json()
+      console.log(JSON.stringify(data))
+      return res.json()
     })
     .then(data => {
         if (data.error) {
@@ -79,25 +64,10 @@ export default function CoachWorkoutPage() {
         }
     })
   }
-
-
   return(
     <>
-      <h2>Workout</h2>
-      <div>
-        {workouts[0] && workouts[0].exercisesDetails.map((details: any, i: any) => {
-          return (
-            <>
-              <p>Exercise Number {i+1}</p>
-              <p>Desc: {details.description}</p>
-              <p>Sets: {details.sets}</p>
-              <p>Reps: {details.reps}</p>
-              <p>Weight: {details.weight}</p>
-              <p>Name: {details.exercise.name}</p>
-            </>
-          )
-        })}
-      </div>
+      <WorkoutDetails id={id}/>
+      
       <Box sx={{ flexGros: 1 }}>
       <form noValidate autoComplete="off" onSubmit={handleSubmit}>
         <TextField onChange={handleChange} id="filled-basic" label="Sets" name="sets" value={form.sets}/>
@@ -124,5 +94,5 @@ export default function CoachWorkoutPage() {
       </form>      
       </Box>
     </>
-  )
+  ) 
 }

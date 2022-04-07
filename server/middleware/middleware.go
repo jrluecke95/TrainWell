@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AssignCoachBody struct {
@@ -17,12 +20,15 @@ type AssignCoachBody struct {
 	CoachEmail  string `json:"coachEmail" bson:"coachEmail"`
 }
 type ExerciseDetailsBody struct {
-	ID   primitive.ObjectID `json:"id"`
-	Sets int16              `json:"sets"`
-	Reps int16              `json:"reps"`
+	WorkoutId    primitive.ObjectID `json:"workoutId"`
+	ExerciseName string             `json:"exerciseName"`
+	Sets         int16              `json:"sets"`
+	Reps         int16              `json:"reps"`
+	Weight       int16              `json:"weight"`
+	Description  string             `json:"description"`
 }
 
-func goDotEnvVariable(key string) string {
+func GoDotEnvVariable(key string) string {
 
 	// load .env file
 	err := godotenv.Load("../.env")
@@ -37,7 +43,7 @@ func goDotEnvVariable(key string) string {
 // DB connection string
 // for localhost mongoDB
 // const connectionString = "mongodb://localhost:27017"
-var value = goDotEnvVariable("mongodbConnectString")
+var value = GoDotEnvVariable("mongodbConnectString")
 var connectionString = value
 
 // Database Name
@@ -48,12 +54,16 @@ const coaches = "Coaches"
 const clients = "Clients"
 const exercises = "Exercises"
 const exerciseDetails = "ExerciseDetails"
+const workoutPlans = "WorkoutPlans"
+const workouts = "Workouts"
 
 // collection object/instance
 var coachCollection *mongo.Collection
 var clientCollection *mongo.Collection
 var exerciseCollection *mongo.Collection
 var exerciseDetailsCollection *mongo.Collection
+var workoutPlanCollection *mongo.Collection
+var workoutCollection *mongo.Collection
 
 // create connection with mongo db
 func init() {
@@ -81,6 +91,8 @@ func init() {
 	clientCollection = client.Database(dbName).Collection(clients)
 	exerciseCollection = client.Database(dbName).Collection((exercises))
 	exerciseDetailsCollection = client.Database(dbName).Collection(exerciseDetails)
+	workoutCollection = client.Database(dbName).Collection(workouts)
+	workoutPlanCollection = client.Database(dbName).Collection(workoutPlans)
 
 	fmt.Println("Collection instance created!")
 }
@@ -93,4 +105,31 @@ func removeIDFromArray(initArray []primitive.ObjectID, badId primitive.ObjectID)
 		}
 	}
 	return finalArr
+}
+
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	fmt.Println(err)
+	return err == nil
+}
+
+func CheckLogin(res http.ResponseWriter, req *http.Request, sessionName string) bool {
+	var store = sessions.NewCookieStore([]byte(GoDotEnvVariable("SESSION_KEY")))
+	session, _ := store.Get(req, sessionName)
+
+	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
+		http.Error(res, "Forbidden", http.StatusForbidden)
+		return false
+	}
+
+	// Print secret message
+	fmt.Fprintln(res, "This coach has a token!")
+
+	return true
+
 }

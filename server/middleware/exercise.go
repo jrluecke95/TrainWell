@@ -99,31 +99,23 @@ func getAllExercises() []primitive.M {
 func CreateExerciseDetails(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("content-type", "application/json")
 	var body ExerciseDetailsBody
-	var exerciseDetails models.ExerciseDetails
 	json.NewDecoder(req.Body).Decode(&body)
-	createExerciseDetails(body, exerciseDetails, res, req)
+	createExerciseDetails(body, res, req)
 }
 
-func createExerciseDetails(body ExerciseDetailsBody, exerciseDetails models.ExerciseDetails, res http.ResponseWriter, req *http.Request) {
+func createExerciseDetails(body ExerciseDetailsBody, res http.ResponseWriter, req *http.Request) {
 	exercise := models.Exercise{}
-	exerciseCollection.FindOne(context.Background(), bson.M{"_id": body.ID}).Decode(&exercise)
+	exerciseCollection.FindOne(context.Background(), bson.M{"name": body.ExerciseName}).Decode(&exercise)
 
+	exerciseDetails := models.ExerciseDetails{}
 	exerciseDetails.ID = primitive.NewObjectID()
-	exerciseDetails.Reps = body.Reps
+	exerciseDetails.Exercise = exercise
 	exerciseDetails.Sets = body.Sets
-	exerciseDetails.Exercise_ID = body.ID
+	exerciseDetails.Reps = body.Reps
+	exerciseDetails.Weight = body.Weight
+	exerciseDetails.Description = body.Description
 
-	details := append(exercise.ExerciseDetails, exerciseDetails.ID)
-
-	exerciseUpdate := bson.M{
-		"$set": bson.M{
-			"exercisedetails": details,
-		},
-	}
-
-	exerciseCollection.UpdateByID(context.Background(), body.ID, exerciseUpdate)
-
-	_, err := exerciseDetailsCollection.InsertOne(context.Background(), exerciseDetails)
+	_, err := workoutCollection.InsertOne(context.Background(), exerciseDetails)
 
 	if err != nil {
 		log.Fatal(err)

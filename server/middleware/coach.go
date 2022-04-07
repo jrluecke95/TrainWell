@@ -5,13 +5,87 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"server/models"
+	"time"
 
+	"github.com/golang-jwt/jwt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+type LoginBody struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+func CoachLogin(res http.ResponseWriter, req *http.Request) {
+	loginInfo := &LoginBody{}
+	json.NewDecoder(req.Body).Decode(loginInfo)
+	err := coachLogin(loginInfo, req, res)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func coachLogin(loginInfo *LoginBody, req *http.Request, res http.ResponseWriter) error {
+	session, _ := store.Get(req, CoachSessionName)
+
+	// fetching coach from emailprovided so we can compare pw's
+	coach := &models.Coach{}
+	coachErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(loginInfo.Email)}).Decode(&coach)
+
+	// checking to see if anything found and throwing err if nothing found
+	if coachErr == mongo.ErrNoDocuments {
+		errString := "no coach found with that email"
+		http.Error(res, errString, 400)
+		return errors.New(errString)
+	}
+
+	// function returns true/false based on err or no err
+	//comparing provided password along with pw from db
+	match := CheckPasswordHash(loginInfo.Password, coach.PersonalInfo.Password)
+
+	expirationTime := time.Now().Add(5 * time.Minute)
+
+	claims := Claims{
+		jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+		coach.PersonalInfo.Email,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	// Create the JWT string
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		// If there is an error in creating the JWT return an internal server error
+		errString := "issue with jwt token"
+		http.Error(res, errString, http.StatusForbidden)
+		return errors.New(errString)
+	}
+
+	// creating session or throwing error if pw match/doesn't match
+	if match {
+		http.SetCookie(res, &http.Cookie{
+			Name:    "token",
+			Value:   tokenString,
+			Expires: expirationTime,
+		})
+		session.Values["email"] = coach.PersonalInfo.Email
+		session.Values["id"] = coach.ID.Hex()
+		session.Save(req, res)
+		json.NewEncoder(res).Encode(coach)
+		return nil
+	} else {
+		errString := "invalid password"
+		http.Error(res, errString, http.StatusForbidden)
+		return errors.New(errString)
+	}
+}
 
 func CreateCoach(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("content-type", "application/json")
@@ -27,8 +101,8 @@ func CreateCoach(res http.ResponseWriter, req *http.Request) {
 }
 
 func createCoach(coach models.Coach, res http.ResponseWriter) error {
-	duplicateEmailErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(coach.Email)})
-	duplicatePhoneErr := coachCollection.FindOne(context.Background(), bson.M{"phonenumber": string(coach.PhoneNumber)})
+	duplicateEmailErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(coach.PersonalInfo.Email)})
+	duplicatePhoneErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.phoneNumber": string(coach.PersonalInfo.PhoneNumber)})
 
 	if duplicateEmailErr.Err() != mongo.ErrNoDocuments {
 		errString := "email already in use for coach"
@@ -41,6 +115,10 @@ func createCoach(coach models.Coach, res http.ResponseWriter) error {
 		http.Error(res, errString, 400)
 		return errors.New(errString)
 	}
+
+	// TODO do i need to do something with this error
+	hash, _ := HashPassword(coach.PersonalInfo.Password)
+	coach.PersonalInfo.Password = hash
 
 	_, err := coachCollection.InsertOne(context.Background(), coach)
 
@@ -98,10 +176,10 @@ func AssignCoach(res http.ResponseWriter, req *http.Request) {
 
 func assignCoach(body AssignCoachBody, res http.ResponseWriter) error {
 	clientResult := &models.Client{}
-	clientErr := clientCollection.FindOne(context.Background(), bson.M{"email": string(body.ClientEmail)}).Decode(&clientResult)
+	clientErr := clientCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(body.ClientEmail)}).Decode(&clientResult)
 
 	coachResult := &models.Coach{}
-	coachErr := coachCollection.FindOne(context.Background(), bson.M{"email": string(body.CoachEmail)}).Decode(&coachResult)
+	coachErr := coachCollection.FindOne(context.Background(), bson.M{"personalInfo.email": string(body.CoachEmail)}).Decode(&coachResult)
 
 	// if client is not found throw error
 	if clientErr == mongo.ErrNoDocuments {
@@ -208,4 +286,40 @@ func unassignCoach(body AssignCoachBody, res http.ResponseWriter) error {
 	}
 
 	return err
+}
+
+func GetCoachWorkoutPlans(res http.ResponseWriter, req *http.Request) {
+	res.Header().Add("content-type", "application/json")
+	payload, err := getCoachWorkoutPlans(res, req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	json.NewEncoder(res).Encode(payload)
+}
+
+func getCoachWorkoutPlans(res http.ResponseWriter, req *http.Request) ([]models.WorkoutPlan, error) {
+	TokenCheck(res, req)
+	// creating session if coach is logged in
+	session, _ := store.Get(req, CoachSessionName)
+
+	// converting id stored in session back to objevt id to search db
+	value := session.Values["id"]
+	str := fmt.Sprintf("%v", value)
+	coachID, err := primitive.ObjectIDFromHex(str)
+	if err != nil {
+		return nil, err
+	}
+
+	workoutCursors, workoutsErr := workoutPlanCollection.Find(context.Background(), bson.M{"coachID": coachID})
+
+	if workoutsErr != nil {
+		return nil, workoutsErr
+	}
+
+	workouts := []models.WorkoutPlan{}
+	if err = workoutCursors.All(context.TODO(), &workouts); err != nil {
+		log.Fatal(err)
+	}
+	return workouts, nil
 }
